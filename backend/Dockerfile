@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project code
 COPY . .
 
-# Expose port (Render uses $PORT environment variable, default 10000)
-EXPOSE 10000
+# Railway / Render both inject $PORT at runtime
+EXPOSE 8080
 
-# Start Gunicorn server
-CMD ["gunicorn", "savetube.wsgi:application", "--bind", "0.0.0.0:10000"]
+# Start Gunicorn – bind to $PORT so Railway works automatically
+CMD gunicorn savetube.wsgi:application --bind 0.0.0.0:${PORT:-10000} --workers 2 --timeout 120
