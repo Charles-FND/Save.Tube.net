@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import urllib.parse
 from pathlib import Path
+import tempfile
 
 import yt_dlp
 from django.conf import settings
@@ -61,6 +62,15 @@ YOUTUBE_REGEX = re.compile(
 #
 #   needs_merge=False → 720p and below: pre-muxed single file, no FFmpeg needed at all
 #
+# ── Cookies handling for bot bypass ────────────────────────────────────────────
+COOKIE_FILE = None
+cookies_content = os.environ.get("YOUTUBE_COOKIES")
+if cookies_content:
+    fd, COOKIE_FILE = tempfile.mkstemp(suffix=".txt", text=True)
+    with os.fdopen(fd, 'w', encoding='utf-8') as f:
+        # replace literal \n with actual newlines if pasted as single string
+        f.write(cookies_content.replace('\\n', '\n'))
+
 QUALITY_TIERS = [
     # 8K — VP9/AV1 + Opus → webm merge (stream copy, no re-encode)
     ('8K',
@@ -378,6 +388,8 @@ def video_info(request):
         'skip_download': True,
         'extractor_args': {'youtube': ['player_client=android']}
     }
+    if COOKIE_FILE:
+        ydl_opts['cookiefile'] = COOKIE_FILE
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -514,10 +526,17 @@ def _download_video_impl(request):
             # NO ffmpeg_location — FFmpeg cannot be invoked
         }
 
+    if COOKIE_FILE:
+        ydl_opts['cookiefile'] = COOKIE_FILE
+
     # ── Fetch info for logging (non-blocking) ────────────────────────────────
     info = {}
+    fetch_opts = {'quiet': True, 'skip_download': True, 'extractor_args': {'youtube': ['player_client=android']}}
+    if COOKIE_FILE:
+        fetch_opts['cookiefile'] = COOKIE_FILE
+
     try:
-        with yt_dlp.YoutubeDL({'quiet': True, 'skip_download': True, 'extractor_args': {'youtube': ['player_client=android']}}) as ydl:
+        with yt_dlp.YoutubeDL(fetch_opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception:
         pass
@@ -726,6 +745,8 @@ def stream_video(request):
         '-o', '-',          # ← stdout output
         '--extractor-args', 'youtube:player_client=android'
     ]
+    if COOKIE_FILE:
+        base_cmd.extend(['--cookies', COOKIE_FILE])
 
     if is_audio_only and merge_ext == 'mp3':
         # Audio extraction: convert to mp3 via ffmpeg
