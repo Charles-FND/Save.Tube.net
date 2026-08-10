@@ -413,7 +413,7 @@ def video_info(request):
         return Response({'error': 'Invalid or unsupported YouTube URL.'}, status=status.HTTP_400_BAD_REQUEST)
 
     cookie_file = get_cookie_file()
-    extractor_clients = ['player_client=ios,web,mweb'] if cookie_file else ['player_client=ios,mweb,tv']
+    extractor_clients = ['player_client=mweb,tv,ios']
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -511,7 +511,7 @@ def _download_video_impl(request):
 
     # ── Build yt-dlp options ──────────────────────────────────────────────────
     cookie_file = get_cookie_file()
-    extractor_clients = ['player_client=ios,web,mweb'] if cookie_file else ['player_client=ios,mweb,tv']
+    extractor_clients = ['player_client=mweb,tv,ios']
 
     if is_audio_only and output_ext == 'mp3':
         # MP3: extract audio and convert via FFmpeg
@@ -771,7 +771,7 @@ def stream_video(request):
     filename      = f'{clean_title} [{clean_quality}].{merge_ext}'
 
     cookie_file = get_cookie_file()
-    extractor_clients = ['player_client=ios,web,mweb'] if cookie_file else ['player_client=ios,mweb,tv']
+    extractor_clients = ['player_client=mweb,tv,ios']
 
     # ── Build yt-dlp command ──────────────────────────────────────────────────
     # -o - → write to stdout instead of disk
