@@ -1,5 +1,5 @@
 Django==5.0.3
-yt-dlp==2024.3.10
+yt-dlp==2026.7.4
 django-cors-headers==4.3.1
 gunicorn==21.2.0
 python-decouple
