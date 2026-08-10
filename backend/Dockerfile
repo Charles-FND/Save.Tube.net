@@ -19,4 +19,4 @@ COPY . .
 EXPOSE 10000
 
 # Start Gunicorn server
-CMD ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:10000"]
+CMD ["gunicorn", "savetube.wsgi:application", "--bind", "0.0.0.0:10000"]
