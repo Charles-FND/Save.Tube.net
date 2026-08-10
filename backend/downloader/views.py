@@ -372,7 +372,12 @@ def video_info(request):
     if not is_valid_youtube_url(url):
         return Response({'error': 'Invalid or unsupported YouTube URL.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    ydl_opts = {'quiet': True, 'no_warnings': True, 'skip_download': True}
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'skip_download': True,
+        'extractor_args': {'youtube': ['player_client=android']}
+    }
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -473,6 +478,7 @@ def _download_video_impl(request):
                 'preferredcodec':   'mp3',
                 'preferredquality': '320',
             }],
+            'extractor_args': {'youtube': ['player_client=android']}
         }
     elif needs_merge:
         # HD (1080p+): separate video+audio streams — merge via FFmpeg stream copy
@@ -493,6 +499,7 @@ def _download_video_impl(request):
             'retries':             5,
             'fragment_retries':    5,
             'concurrent_fragment_downloads': 4,
+            'extractor_args': {'youtube': ['player_client=android']}
         }
     else:
         # Direct (720p and below): pre-muxed stream — no FFmpeg, instant download
@@ -503,13 +510,14 @@ def _download_video_impl(request):
             'format':                        format_str,
             'outtmpl':                       outtmpl,
             'concurrent_fragment_downloads': 4,
+            'extractor_args': {'youtube': ['player_client=android']}
             # NO ffmpeg_location — FFmpeg cannot be invoked
         }
 
     # ── Fetch info for logging (non-blocking) ────────────────────────────────
     info = {}
     try:
-        with yt_dlp.YoutubeDL({'quiet': True, 'skip_download': True}) as ydl:
+        with yt_dlp.YoutubeDL({'quiet': True, 'skip_download': True, 'extractor_args': {'youtube': ['player_client=android']}}) as ydl:
             info = ydl.extract_info(url, download=False)
     except Exception:
         pass
@@ -716,6 +724,7 @@ def stream_video(request):
         '-f', format_str,
         '--ffmpeg-location', FFMPEG_BIN,
         '-o', '-',          # ← stdout output
+        '--extractor-args', 'youtube:player_client=android'
     ]
 
     if is_audio_only and merge_ext == 'mp3':
