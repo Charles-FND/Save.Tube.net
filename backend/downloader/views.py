@@ -64,11 +64,11 @@ YOUTUBE_REGEX = re.compile(
 #   needs_merge=False → 720p and below: pre-muxed single file, no FFmpeg needed at all
 #
 # ── Cookies handling for bot bypass ────────────────────────────────────────────
-def _prepare_cookie_file():
+def get_cookie_file():
     cookies_content = os.environ.get("YOUTUBE_COOKIES")
     if not cookies_content:
         return None
-    cookies_content = cookies_content.strip()
+    cookies_content = cookies_content.strip().strip('"').strip("'").strip()
     if not cookies_content:
         return None
 
@@ -100,9 +100,6 @@ def _prepare_cookie_file():
     with os.fdopen(fd, 'w', encoding='utf-8') as f:
         f.write(cookies_content)
     return cookie_path
-
-COOKIE_FILE = _prepare_cookie_file()
-EXTRACTOR_CLIENTS = ['player_client=ios,mweb,tv']
 
 QUALITY_TIERS = [
     # 8K — VP9/AV1 + Opus → webm merge (stream copy, no re-encode)
@@ -415,21 +412,24 @@ def video_info(request):
     if not is_valid_youtube_url(url):
         return Response({'error': 'Invalid or unsupported YouTube URL.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    cookie_file = get_cookie_file()
+    extractor_clients = ['player_client=ios,web,mweb'] if cookie_file else ['player_client=ios,mweb,tv']
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'skip_download': True,
-        'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
+        'extractor_args': {'youtube': extractor_clients}
     }
-    if COOKIE_FILE:
-        ydl_opts['cookiefile'] = COOKIE_FILE
+    if cookie_file:
+        ydl_opts['cookiefile'] = cookie_file
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except yt_dlp.utils.DownloadError as e:
+        status_msg = "YOUTUBE_COOKIES env var detected" if cookie_file else "No YOUTUBE_COOKIES env var found on server"
         return Response(
-            {'error': f'Could not fetch video: {str(e)}'},
+            {'error': f'Could not fetch video: {str(e)} [{status_msg}]'},
             status=status.HTTP_422_UNPROCESSABLE_ENTITY,
         )
     except Exception:
@@ -510,6 +510,9 @@ def _download_video_impl(request):
     outtmpl = str(session_dir / '%(title)s.%(ext)s')
 
     # ── Build yt-dlp options ──────────────────────────────────────────────────
+    cookie_file = get_cookie_file()
+    extractor_clients = ['player_client=ios,web,mweb'] if cookie_file else ['player_client=ios,mweb,tv']
+
     if is_audio_only and output_ext == 'mp3':
         # MP3: extract audio and convert via FFmpeg
         ydl_opts = {
@@ -523,7 +526,7 @@ def _download_video_impl(request):
                 'preferredcodec':   'mp3',
                 'preferredquality': '320',
             }],
-            'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
+            'extractor_args': {'youtube': extractor_clients}
         }
     elif needs_merge:
         # HD (1080p+): separate video+audio streams — merge via FFmpeg stream copy
@@ -544,7 +547,7 @@ def _download_video_impl(request):
             'retries':             5,
             'fragment_retries':    5,
             'concurrent_fragment_downloads': 4,
-            'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
+            'extractor_args': {'youtube': extractor_clients}
         }
     else:
         # Direct (720p and below): pre-muxed stream — no FFmpeg, instant download
@@ -555,18 +558,18 @@ def _download_video_impl(request):
             'format':                        format_str,
             'outtmpl':                       outtmpl,
             'concurrent_fragment_downloads': 4,
-            'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
+            'extractor_args': {'youtube': extractor_clients}
             # NO ffmpeg_location — FFmpeg cannot be invoked
         }
 
-    if COOKIE_FILE:
-        ydl_opts['cookiefile'] = COOKIE_FILE
+    if cookie_file:
+        ydl_opts['cookiefile'] = cookie_file
 
     # ── Fetch info for logging (non-blocking) ────────────────────────────────
     info = {}
-    fetch_opts = {'quiet': True, 'skip_download': True, 'extractor_args': {'youtube': EXTRACTOR_CLIENTS}}
-    if COOKIE_FILE:
-        fetch_opts['cookiefile'] = COOKIE_FILE
+    fetch_opts = {'quiet': True, 'skip_download': True, 'extractor_args': {'youtube': extractor_clients}}
+    if cookie_file:
+        fetch_opts['cookiefile'] = cookie_file
 
     try:
         with yt_dlp.YoutubeDL(fetch_opts) as ydl:
@@ -767,6 +770,9 @@ def stream_video(request):
     clean_quality = _safe_filename(quality_label) or quality_label
     filename      = f'{clean_title} [{clean_quality}].{merge_ext}'
 
+    cookie_file = get_cookie_file()
+    extractor_clients = ['player_client=ios,web,mweb'] if cookie_file else ['player_client=ios,mweb,tv']
+
     # ── Build yt-dlp command ──────────────────────────────────────────────────
     # -o - → write to stdout instead of disk
     base_cmd = [
@@ -776,10 +782,10 @@ def stream_video(request):
         '-f', format_str,
         '--ffmpeg-location', FFMPEG_BIN,
         '-o', '-',          # ← stdout output
-        '--extractor-args', f'youtube:{EXTRACTOR_CLIENTS[0]}'
+        '--extractor-args', f'youtube:{extractor_clients[0]}'
     ]
-    if COOKIE_FILE:
-        base_cmd.extend(['--cookies', COOKIE_FILE])
+    if cookie_file:
+        base_cmd.extend(['--cookies', cookie_file])
 
     if is_audio_only and merge_ext == 'mp3':
         # Audio extraction: convert to mp3 via ffmpeg
