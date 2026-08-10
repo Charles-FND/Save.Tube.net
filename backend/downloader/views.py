@@ -102,7 +102,7 @@ def _prepare_cookie_file():
     return cookie_path
 
 COOKIE_FILE = _prepare_cookie_file()
-EXTRACTOR_CLIENTS = ['player_client=ios,web,mweb'] if COOKIE_FILE else ['player_client=ios,android']
+EXTRACTOR_CLIENTS = ['player_client=ios,mweb,tv']
 
 QUALITY_TIERS = [
     # 8K — VP9/AV1 + Opus → webm merge (stream copy, no re-encode)
