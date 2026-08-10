@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+*.sqlite3
+
+# Node / React
+node_modules/
+dist/
+.DS_Store
+
+# Large media / binaries
+ffmpeg.zip
+ffmpeg_extracted/
+backend/media/
+backend/downloader/temp/
+backend/temp_downloads/
