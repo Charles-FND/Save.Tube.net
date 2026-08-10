@@ -63,7 +63,7 @@ function App() {
   }, [videoData])
 
   return (
-    <div className="min-h-screen flex flex-col relative bg-transparent">
+    <div className="min-h-screen flex flex-col relative bg-transparent overflow-x-hidden">
       {/* Background Wrapper */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         {/* Animated Aurora Background (Glossy Light) */}
@@ -82,21 +82,22 @@ function App() {
 
         {/* Error Banner */}
         {error && (
-          <div className="max-w-3xl mx-auto w-full px-4 mt-4 animate-fade-in-up">
-            <div className="glass-card border border-red-500/30 p-4 flex items-start gap-3">
+          <div className="max-w-3xl mx-auto w-full px-3 sm:px-4 mt-4 animate-fade-in-up">
+            <div className="glass-card border border-red-500/25 p-3 sm:p-4 flex items-start gap-3">
               <span className="text-red-500 mt-0.5 flex-shrink-0">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
               </span>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="text-red-700 font-bold text-sm">Download Error</p>
-                <p className="text-gray-800 dark:text-gray-300 text-sm mt-0.5">{error}</p>
+                <p className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm mt-0.5 break-words">{error}</p>
               </div>
               <button
                 onClick={() => setError('')}
-                className="ml-auto text-gray-500 dark:text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0"
+                className="ml-auto text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0 p-1"
+                style={{ touchAction: 'manipulation' }}
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -109,14 +110,14 @@ function App() {
         <div ref={resultRef}>
           {/* Loading skeleton */}
           {loading && !videoData && (
-            <div className="max-w-4xl mx-auto w-full px-4 mt-8 mb-12 animate-fade-in-up">
+            <div className="max-w-4xl mx-auto w-full px-3 sm:px-4 mt-6 sm:mt-8 mb-10 sm:mb-12 animate-fade-in-up">
               <LoadingSkeleton />
             </div>
           )}
 
           {/* Result Card */}
           {videoData && (
-            <div className="max-w-4xl mx-auto w-full px-4 mt-8 mb-12 animate-fade-in-up">
+            <div className="max-w-4xl mx-auto w-full px-3 sm:px-4 mt-6 sm:mt-8 mb-10 sm:mb-12 animate-fade-in-up">
               <ResultCard
                 video={videoData}
                 onDownload={handleDownload}
@@ -135,19 +136,20 @@ function App() {
 
 function LoadingSkeleton() {
   return (
-    <div className="glass-card p-6 space-y-4">
-      <div className="flex gap-4">
-        <div className="shimmer-loading rounded-xl w-48 h-28 flex-shrink-0" />
+    <div className="glass-card p-4 sm:p-6 space-y-4">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="shimmer-loading rounded-xl w-full sm:w-52 h-44 sm:h-32 flex-shrink-0" />
         <div className="flex-1 space-y-3">
-          <div className="shimmer-loading rounded-lg h-5 w-3/4" />
+          <div className="shimmer-loading rounded-lg h-5 w-4/5" />
           <div className="shimmer-loading rounded-lg h-4 w-1/2" />
           <div className="shimmer-loading rounded-lg h-4 w-1/3" />
+          <div className="shimmer-loading rounded-lg h-4 w-2/5 mt-2" />
         </div>
       </div>
-      <div className="shimmer-loading rounded-lg h-4 w-full" />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="shimmer-loading rounded-lg h-3 w-full" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[1, 2, 3, 4, 5, 6].map(i => (
-          <div key={i} className="shimmer-loading rounded-xl h-16" />
+          <div key={i} className="shimmer-loading rounded-xl h-20" />
         ))}
       </div>
     </div>
