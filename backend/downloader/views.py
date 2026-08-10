@@ -10,6 +10,7 @@ Endpoints:
   GET  /api/health/                       → liveness probe
 """
 import os
+import json
 import re
 import sys
 import uuid
@@ -63,13 +64,45 @@ YOUTUBE_REGEX = re.compile(
 #   needs_merge=False → 720p and below: pre-muxed single file, no FFmpeg needed at all
 #
 # ── Cookies handling for bot bypass ────────────────────────────────────────────
-COOKIE_FILE = None
-cookies_content = os.environ.get("YOUTUBE_COOKIES")
-if cookies_content:
-    fd, COOKIE_FILE = tempfile.mkstemp(suffix=".txt", text=True)
+def _prepare_cookie_file():
+    cookies_content = os.environ.get("YOUTUBE_COOKIES")
+    if not cookies_content:
+        return None
+    cookies_content = cookies_content.strip()
+    if not cookies_content:
+        return None
+
+    # Auto-convert JSON cookies to Netscape format if user pasted JSON
+    if cookies_content.startswith("[") or cookies_content.startswith("{"):
+        try:
+            data = json.loads(cookies_content)
+            if isinstance(data, dict):
+                data = [data]
+            lines = ["# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated automatically\n\n"]
+            for item in data:
+                domain = item.get("domain", ".youtube.com")
+                flag = "TRUE" if domain.startswith(".") else "FALSE"
+                path = item.get("path", "/")
+                secure = "TRUE" if item.get("secure", False) else "FALSE"
+                expiration = str(int(item.get("expirationDate", item.get("expires", 2147483647))))
+                name = item.get("name", "")
+                value = item.get("value", "")
+                lines.append(f"{domain}\t{flag}\t{path}\t{secure}\t{expiration}\t{name}\t{value}")
+            cookies_content = "\n".join(lines)
+        except Exception:
+            pass
+
+    cookies_content = cookies_content.replace('\\n', '\n')
+    if not cookies_content.startswith("# Netscape"):
+        cookies_content = "# Netscape HTTP Cookie File\n" + cookies_content
+
+    fd, cookie_path = tempfile.mkstemp(suffix=".txt", text=True)
     with os.fdopen(fd, 'w', encoding='utf-8') as f:
-        # replace literal \n with actual newlines if pasted as single string
-        f.write(cookies_content.replace('\\n', '\n'))
+        f.write(cookies_content)
+    return cookie_path
+
+COOKIE_FILE = _prepare_cookie_file()
+EXTRACTOR_CLIENTS = ['player_client=ios,web,mweb'] if COOKIE_FILE else ['player_client=ios,android']
 
 QUALITY_TIERS = [
     # 8K — VP9/AV1 + Opus → webm merge (stream copy, no re-encode)
@@ -386,7 +419,7 @@ def video_info(request):
         'quiet': True,
         'no_warnings': True,
         'skip_download': True,
-        'extractor_args': {'youtube': ['player_client=android']}
+        'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
     }
     if COOKIE_FILE:
         ydl_opts['cookiefile'] = COOKIE_FILE
@@ -490,7 +523,7 @@ def _download_video_impl(request):
                 'preferredcodec':   'mp3',
                 'preferredquality': '320',
             }],
-            'extractor_args': {'youtube': ['player_client=android']}
+            'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
         }
     elif needs_merge:
         # HD (1080p+): separate video+audio streams — merge via FFmpeg stream copy
@@ -511,7 +544,7 @@ def _download_video_impl(request):
             'retries':             5,
             'fragment_retries':    5,
             'concurrent_fragment_downloads': 4,
-            'extractor_args': {'youtube': ['player_client=android']}
+            'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
         }
     else:
         # Direct (720p and below): pre-muxed stream — no FFmpeg, instant download
@@ -522,7 +555,7 @@ def _download_video_impl(request):
             'format':                        format_str,
             'outtmpl':                       outtmpl,
             'concurrent_fragment_downloads': 4,
-            'extractor_args': {'youtube': ['player_client=android']}
+            'extractor_args': {'youtube': EXTRACTOR_CLIENTS}
             # NO ffmpeg_location — FFmpeg cannot be invoked
         }
 
@@ -531,7 +564,7 @@ def _download_video_impl(request):
 
     # ── Fetch info for logging (non-blocking) ────────────────────────────────
     info = {}
-    fetch_opts = {'quiet': True, 'skip_download': True, 'extractor_args': {'youtube': ['player_client=android']}}
+    fetch_opts = {'quiet': True, 'skip_download': True, 'extractor_args': {'youtube': EXTRACTOR_CLIENTS}}
     if COOKIE_FILE:
         fetch_opts['cookiefile'] = COOKIE_FILE
 
@@ -743,7 +776,7 @@ def stream_video(request):
         '-f', format_str,
         '--ffmpeg-location', FFMPEG_BIN,
         '-o', '-',          # ← stdout output
-        '--extractor-args', 'youtube:player_client=android'
+        '--extractor-args', f'youtube:{EXTRACTOR_CLIENTS[0]}'
     ]
     if COOKIE_FILE:
         base_cmd.extend(['--cookies', COOKIE_FILE])
